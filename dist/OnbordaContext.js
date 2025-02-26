@@ -22,6 +22,7 @@ const OnbordaProvider = ({ children, tours = [], activeTour = null, defaultIsOnb
     const [isOnbordaVisible, setOnbordaVisible] = useState(false);
     const [currentTourSteps, setCurrentTourStepsState] = useState([]);
     const [completedSteps, setCompletedSteps] = useState(new Set());
+    const [isStepChanging, setIsStepChanging] = useState(false);
     // Start the active tour on mount
     useEffect(() => {
         if (activeTour && currentTour === null) {
@@ -103,6 +104,8 @@ const OnbordaProvider = ({ children, tours = [], activeTour = null, defaultIsOnb
             setOnbordaVisible,
             completedSteps,
             setCompletedSteps,
+            isStepChanging,
+            setIsStepChanging,
         }, children: children }));
 };
 export { OnbordaProvider, useOnborda };

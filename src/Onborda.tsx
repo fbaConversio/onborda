@@ -35,6 +35,8 @@ const Onborda: React.FC<OnbordaProps> = ({
     tours,
     closeOnborda,
     setOnbordaVisible,
+    isStepChanging,
+    setIsStepChanging,
   } = useOnborda();
 
   const [elementToScroll, setElementToScroll] = useState<Element | null>(null);
@@ -423,6 +425,7 @@ const Onborda: React.FC<OnbordaProps> = ({
   function simulateClick(selector: string | undefined) {
     if (!selector) return;
 
+    debug && console.log("Onborda: Simulating click", selector);
     const element = document.querySelector(selector);
     if (element instanceof HTMLElement) {
       element.click();
@@ -438,8 +441,6 @@ const Onborda: React.FC<OnbordaProps> = ({
   }
 
   // - -
-  // Step Controls
-  const [isStepChanging, setIsStepChanging] = useState(false);
 
   const nextStep = async () => {
     if (isStepChanging) return;
@@ -453,7 +454,7 @@ const Onborda: React.FC<OnbordaProps> = ({
 
     setTimeout(async () => {
       const nextStepIndex = currentStep + 1;
-      await setStep(nextStepIndex);
+      await changeStep(nextStepIndex);
     }, 100);
 
     setTimeout(() => setIsStepChanging(false), 500);
@@ -472,17 +473,62 @@ const Onborda: React.FC<OnbordaProps> = ({
 
     setTimeout(async () => {
       const prevStepIndex = currentStep - 1;
-      await setStep(prevStepIndex);
+      await changeStep(prevStepIndex);
     }, 100);
     setTimeout(() => setIsStepChanging(false), 500);
   };
 
-  const setStep = async (step: number | string) => {
+  const [previousStep, setPreviousStep] = useState<number | null>(null);
+
+  const changeStep = async (step: number | string | null) => {
+    if (step === null) return;
+
     const setStepIndex =
       typeof step === "string"
         ? currentTourSteps.findIndex((s) => s?.id === step)
         : step;
+
     setCurrentStep(setStepIndex);
+  };
+
+  const setStep = async (step: number | string) => {
+    if (isStepChanging) return;
+    setIsStepChanging(true);
+
+    if (
+      currentTourSteps?.[Number(previousStep)]?.clickElementOnUnset &&
+      previousStep !== null
+    ) {
+      debug &&
+        console.log(
+          "Onborda: Simulating click",
+          currentTourSteps?.[Number(previousStep)]?.clickElementOnUnset
+        );
+      simulateClick(
+        currentTourSteps?.[Number(previousStep)]?.clickElementOnUnset
+      );
+    }
+
+    if (currentTourSteps?.[Number(step)]?.clickElementOnSet) {
+      debug &&
+        console.log(
+          "Onborda: Simulating click",
+          currentTourSteps?.[Number(step)]?.clickElementOnSet
+        );
+      simulateClick(currentTourSteps?.[Number(step)]?.clickElementOnSet);
+    }
+
+    setTimeout(async () => {
+      const setStepIndex =
+        typeof step === "string"
+          ? currentTourSteps.findIndex((s) => s?.id === step)
+          : step;
+
+      setPreviousStep(Number(step));
+      setCurrentStep(setStepIndex);
+    }, 100);
+
+    setTimeout(() => setIsStepChanging(false), 500);
   };
 
   // - -

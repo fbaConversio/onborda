@@ -32,6 +32,10 @@ export interface OnbordaContextType {
     completedSteps: Set<number>;
     /** setstate function to set the completed steps */
     setCompletedSteps: React.Dispatch<React.SetStateAction<Set<number>>>;
+    /** flag to check if the step is changing */
+    isStepChanging: boolean;
+    /** function to set the step changing */
+    setIsStepChanging: (isStepChanging: boolean) => void;
 }
 export interface Step {
     /** The unique identifier for the step */
@@ -50,6 +54,10 @@ export interface Step {
     clickElementOnNext?: string;
     /** The CSS selector for the element to click on the previous step. */
     clickElementOnPrev?: string;
+    /** The CSS selector for the element to click on when the step is unset with the setStep function. */
+    clickElementOnUnset?: string;
+    /** The CSS selector for the element to click on when the step is set with the setStep function. */
+    clickElementOnSet?: string;
     /** The side where the step should be displayed */
     side?: "top" | "bottom" | "left" | "right" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | "left-top" | "left-bottom" | "right-top" | "right-bottom";
     /** Flag to show or hide the controls */

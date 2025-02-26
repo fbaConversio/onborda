@@ -41,6 +41,7 @@ const OnbordaProvider: React.FC<OnbordaProviderProps> = ({
   const [isOnbordaVisible, setOnbordaVisible] = useState(false);
   const [currentTourSteps, setCurrentTourStepsState] = useState<Step[]>([]);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [isStepChanging, setIsStepChanging] = useState(false);
 
   // Start the active tour on mount
   useEffect(() => {
@@ -147,6 +148,8 @@ const OnbordaProvider: React.FC<OnbordaProviderProps> = ({
         setOnbordaVisible,
         completedSteps,
         setCompletedSteps,
+        isStepChanging,
+        setIsStepChanging,
       }}
     >
       {children}

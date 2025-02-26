@@ -4,10 +4,10 @@
   "description": "The ultimate product tour library for Next.js",
   "license": "MIT",
   "author": "Matt Litherland",
-  "homepage": "https://github.com/uixmat/onborda#readme",
+  "homepage": "https://github.com/fbaconversio/onborda#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/uixmat/onborda.git"
+    "url": "git+https://github.com/fbaconversio/onborda.git"
   },
   "keywords": [
     "react-onboarding",
