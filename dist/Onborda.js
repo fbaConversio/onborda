@@ -12,21 +12,30 @@ import { getCardStyle, getArrowStyle } from "./OnbordaStyles";
  * @constructor
  */
 const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardTransition = { ease: "anticipate", duration: 0.6 }, cardComponent: CardComponent, tourComponent: TourComponent, debug = false, observerTimeout = 5000, }) => {
-    const { currentTour, currentStep, setCurrentStep, isOnbordaVisible, currentTourSteps, completedSteps, setCompletedSteps, tours, closeOnborda, setOnbordaVisible } = useOnborda();
+    const { currentTour, currentStep, setCurrentStep, isOnbordaVisible, currentTourSteps, completedSteps, setCompletedSteps, tours, closeOnborda, setOnbordaVisible, } = useOnborda();
     const [elementToScroll, setElementToScroll] = useState(null);
     const [pointerPosition, setPointerPosition] = useState(null);
     const currentElementRef = useRef(null);
+    // Add a ref to track if we've triggered positioning for the current element
+    const positioningTriggeredRef = useRef(false);
     // - -
     // Route Changes
     const router = useRouter();
     const path = usePathname();
     const [currentRoute, setCurrentRoute] = useState(path);
     const [pendingRouteChange, setPendingRouteChange] = useState(false);
+    // Add ref to track whether we're currently scrolling
+    const isScrollingRef = useRef(false);
+    const scrollEndTimerRef = useRef(null);
     const hasSelector = (step) => {
         return !!step?.selector || !!step?.customQuerySelector;
     };
     const getStepSelectorElement = (step) => {
-        return step?.selector ? document.querySelector(step.selector) : step?.customQuerySelector ? step.customQuerySelector() : null;
+        return step?.selector
+            ? document.querySelector(step.selector)
+            : step?.customQuerySelector
+                ? step.customQuerySelector()
+                : null;
     };
     // Get the current tour object
     const currentTourObject = useMemo(() => {
@@ -41,7 +50,10 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
     useEffect(() => {
         let cleanup = [];
         if (isOnbordaVisible && currentTourSteps) {
-            debug && console.log("Onborda: Current Step Changed", currentStep, completedSteps);
+            // Reset the positioning triggered flag when step changes
+            positioningTriggeredRef.current = false;
+            debug &&
+                console.log("Onborda: Current Step Changed", currentStep, completedSteps);
             const step = currentTourSteps[currentStep];
             if (step) {
                 let elementFound = false;
@@ -51,66 +63,29 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                     const element = getStepSelectorElement(step);
                     // Check if the element is found
                     if (element) {
-                        // Once the element is found, update the step and scroll to the element
-                        setPointerPosition(getElementPosition(element));
+                        // Check if the element is visible in the viewport or needs scrolling
+                        const rect = element.getBoundingClientRect();
+                        const isVisible = rect.top >= 0 &&
+                            rect.left >= 0 &&
+                            rect.bottom <=
+                                (window.innerHeight || document.documentElement.clientHeight) &&
+                            rect.right <=
+                                (window.innerWidth || document.documentElement.clientWidth);
+                        // Set the element to scroll to
                         setElementToScroll(element);
                         currentElementRef.current = element;
-                        // Function to mark the step as completed if the conditions are met
-                        const handleInteraction = () => {
-                            const isComplete = step?.isCompleteConditions?.(element) ?? true;
-                            debug && console.log("Onborda: Step Interaction", step, isComplete);
-                            if (isComplete && !completedSteps.has(currentStep)) {
-                                debug && console.log("Onborda: Step Completed", currentStep, step);
-                                step?.onComplete && step.onComplete();
-                                setCompletedSteps(completedSteps.add(currentStep));
-                            }
-                            else if (!isComplete && completedSteps.has(currentStep)) {
-                                debug && console.log("Onborda: Step Incomplete", currentStep, step);
-                                setCompletedSteps((prev) => {
-                                    prev.delete(currentStep);
-                                    return prev;
-                                });
-                            }
-                        };
-                        // Initial check
-                        handleInteraction();
-                        // Enable pointer events on the element
-                        if (step.interactable) {
-                            // Current step should be interactable
-                            const htmlElement = element;
-                            htmlElement.style.pointerEvents = "auto";
-                            // Check if the step has an observer selector, if not, use the focused element itself
-                            const eventListenerElements = step?.observerSelector ? document.querySelectorAll(step.observerSelector) : [element];
-                            const htmlElements = Array.from(eventListenerElements);
-                            //create observer to check if the element to focus has changed
-                            const observer = new MutationObserver((mutations, observer) => {
-                                debug && console.log("Onborda: Observer interaction Mutation", mutations);
-                                // If there are mutations, update the pointer position
-                                updatePointerPosition();
-                                // does this step have conditions to be met?
-                                if (step?.isCompleteConditions) {
-                                    handleInteraction();
-                                }
-                            });
-                            //add the observer to the elements
-                            htmlElements.forEach((el) => {
-                                debug && console.log("Onborda: Observer added to element", el);
-                                //add data attribute to the element
-                                el.setAttribute("data-onborda-observed", "true");
-                                //assign the observer to the element
-                                observer.observe(el, {
-                                    childList: true,
-                                    subtree: true,
-                                });
-                                //cleanup the observer
-                                cleanup.push(() => {
-                                    debug && console.log("Onborda: Observer disconnected from element", el);
-                                    el.removeAttribute("data-onborda-observed");
-                                    observer.disconnect();
-                                });
-                            });
-                        }
                         elementFound = true;
+                        // Only delay positioning if element needs scrolling, otherwise position immediately
+                        if (isVisible) {
+                            // Element is already visible - update position immediately
+                            updatePointerPosition();
+                            positioningTriggeredRef.current = true;
+                        }
+                        else {
+                            // Element needs scrolling - let the scroll effect handle the delayed positioning
+                            // The scroll useEffect will take care of positioning after scroll animation
+                            positioningTriggeredRef.current = false;
+                        }
                     }
                     // Even if the element is already found, we still need to check if the route is different from the current route
                     // do we have a route to navigate to?
@@ -126,8 +101,17 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                                 if (shouldSelect) {
                                     const element = getStepSelectorElement(currentTourSteps[currentStep]);
                                     if (element) {
-                                        // Once the element is found, update the step and scroll to the element
-                                        setPointerPosition(getElementPosition(element));
+                                        // Check if the element is visible in the viewport or needs scrolling
+                                        const rect = element.getBoundingClientRect();
+                                        const isVisible = rect.top >= 0 &&
+                                            rect.left >= 0 &&
+                                            rect.bottom <=
+                                                (window.innerHeight ||
+                                                    document.documentElement.clientHeight) &&
+                                            rect.right <=
+                                                (window.innerWidth ||
+                                                    document.documentElement.clientWidth);
+                                        // Set the element to scroll to
                                         setElementToScroll(element);
                                         currentElementRef.current = element;
                                         // Enable pointer events on the element
@@ -135,18 +119,31 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                                             const htmlElement = element;
                                             htmlElement.style.pointerEvents = "auto";
                                         }
+                                        // Only delay positioning if element needs scrolling, otherwise position immediately
+                                        if (isVisible) {
+                                            // Element is already visible - update position immediately
+                                            updatePointerPosition();
+                                            positioningTriggeredRef.current = true;
+                                        }
+                                        else {
+                                            // Element needs scrolling - let the scroll effect handle the delayed positioning
+                                            positioningTriggeredRef.current = false;
+                                        }
                                         // Stop observing after the element is found
                                         observer.disconnect();
-                                        debug && console.log("Onborda: Observer disconnected after element found", element);
+                                        debug &&
+                                            console.log("Onborda: Observer disconnected after element found", element);
                                     }
                                     else {
-                                        debug && console.log("Onborda: Observing for element...", currentTourSteps[currentStep]);
+                                        debug &&
+                                            console.log("Onborda: Observing for element...", currentTourSteps[currentStep]);
                                     }
                                 }
                                 else {
                                     setCurrentStep(currentStep);
                                     observer.disconnect();
-                                    debug && console.log("Onborda: Observer disconnected after no selector set", currentTourSteps[currentStep]);
+                                    debug &&
+                                        console.log("Onborda: Observer disconnected after no selector set", currentTourSteps[currentStep]);
                                 }
                             });
                             // Start observing the document body for changes
@@ -172,33 +169,38 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                 }
                 else {
                     // no selector, but might still need to navigate to a route
-                    if (step.route && (currentRoute == null || !currentRoute?.endsWith(step.route))) {
+                    if (step.route &&
+                        (currentRoute == null || !currentRoute?.endsWith(step.route))) {
                         // Trigger the next route
                         debug && console.log("Onborda: Navigating to route", step.route);
                         router.push(step.route);
                     }
                     else if (!completedSteps.has(currentStep)) {
                         // don't have a route to navigate to, but the step is not completed
-                        debug && console.log("Onborda: Step Completed via no selector", currentStep, step);
+                        debug &&
+                            console.log("Onborda: Step Completed via no selector", currentStep, step);
                         step?.onComplete && step.onComplete();
                         setCompletedSteps(completedSteps.add(currentStep));
                     }
                 }
                 // No element set for this step? Place the pointer at the center of the screen
                 if (!elementFound) {
+                    // For center positioning, we can set it immediately without delay
                     setPointerPosition({
                         x: window.innerWidth / 2,
                         y: window.innerHeight / 2,
                         width: 0,
                         height: 0,
                     });
+                    positioningTriggeredRef.current = true;
                     setElementToScroll(null);
                     currentElementRef.current = null;
                 }
                 // Prefetch the next route
                 const nextStep = currentTourSteps[currentStep + 1];
                 if (nextStep && nextStep?.route) {
-                    debug && console.log("Onborda: Prefetching Next Route", nextStep.route);
+                    debug &&
+                        console.log("Onborda: Prefetching Next Route", nextStep.route);
                     router.prefetch(nextStep.route);
                 }
             }
@@ -210,7 +212,7 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                 htmlElement.style.pointerEvents = "";
             }
             // Cleanup any event listeners we may have added
-            cleanup.forEach(fn => fn());
+            cleanup.forEach((fn) => fn());
         };
     }, [
         currentTour, // Re-run the effect when the current tour changes
@@ -224,8 +226,26 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
     // Helper function to get element position
     const getElementPosition = (element) => {
         const { top, left, width, height } = element.getBoundingClientRect();
-        const scrollTop = window.scrollY || document.documentElement.scrollTop;
-        const scrollLeft = window.scrollX || document.documentElement.scrollLeft;
+        // Always use the latest scroll position values to ensure accuracy during scrolling
+        const scrollTop = window.pageYOffset ||
+            document.documentElement.scrollTop ||
+            document.body.scrollTop ||
+            0;
+        const scrollLeft = window.pageXOffset ||
+            document.documentElement.scrollLeft ||
+            document.body.scrollLeft ||
+            0;
+        debug &&
+            console.log("Onborda: Getting element position", {
+                top,
+                left,
+                width,
+                height,
+                scrollTop,
+                scrollLeft,
+                finalY: top + scrollTop,
+                finalX: left + scrollLeft,
+            });
         return {
             x: left + scrollLeft,
             y: top + scrollTop,
@@ -240,11 +260,68 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
             debug && console.log("Onborda: Element to Scroll Changed");
             const rect = elementToScroll.getBoundingClientRect();
             const isAbove = rect.top < 0;
+            // Mark that we're starting to scroll
+            isScrollingRef.current = true;
+            // Set up scroll end detection
+            const handleScrollEnd = () => {
+                if (isScrollingRef.current) {
+                    debug && console.log("Onborda: Scrolling Completed");
+                    isScrollingRef.current = false;
+                    // Update pointer position when scrolling is complete
+                    if (!positioningTriggeredRef.current) {
+                        updatePointerPosition();
+                        positioningTriggeredRef.current = true;
+                    }
+                }
+            };
+            // Function to detect scroll end using fallback method
+            const detectScrollEnd = () => {
+                // Clear any existing timer
+                if (scrollEndTimerRef.current) {
+                    clearTimeout(scrollEndTimerRef.current);
+                }
+                // Set new timer that fires when scrolling stops
+                scrollEndTimerRef.current = setTimeout(() => {
+                    handleScrollEnd();
+                }, 100); // Short delay to detect when scrolling stops
+            };
+            // Set up modern scrollend event listener if supported
+            const supportsScrollEnd = "onscrollend" in window;
+            if (supportsScrollEnd) {
+                window.addEventListener("scrollend", handleScrollEnd, { once: true });
+            }
+            // Set up fallback scroll listener
+            const scrollListener = () => {
+                if (isScrollingRef.current) {
+                    detectScrollEnd();
+                }
+            };
+            window.addEventListener("scroll", scrollListener);
+            // Start scrolling
             elementToScroll.scrollIntoView({
-                behavior: "smooth",
                 block: isAbove ? "center" : "center",
                 inline: "center",
+                behavior: "smooth",
             });
+            // Also set a maximum timeout for safety
+            const maxScrollTimeout = setTimeout(() => {
+                if (isScrollingRef.current) {
+                    debug && console.log("Onborda: Max Scroll Timeout Reached");
+                    handleScrollEnd();
+                }
+            }, 1000); // Fallback timeout if scroll events don't fire properly
+            return () => {
+                // Clean up all listeners
+                if (supportsScrollEnd) {
+                    window.removeEventListener("scrollend", handleScrollEnd);
+                }
+                window.removeEventListener("scroll", scrollListener);
+                // Clear any timers
+                if (scrollEndTimerRef.current) {
+                    clearTimeout(scrollEndTimerRef.current);
+                }
+                clearTimeout(maxScrollTimeout);
+            };
         }
     }, [elementToScroll, isOnbordaVisible]);
     // - -
@@ -255,7 +332,9 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
             if (step) {
                 const element = getStepSelectorElement(step);
                 if (element) {
-                    setPointerPosition(getElementPosition(element));
+                    const position = getElementPosition(element);
+                    debug && console.log("Onborda: Pointer Position Updated", position);
+                    setPointerPosition(position);
                 }
                 else {
                     // if the element is not found, place the pointer at the center of the screen
@@ -294,7 +373,9 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
         await setStep(prevStepIndex);
     };
     const setStep = async (step) => {
-        const setStepIndex = typeof step === 'string' ? currentTourSteps.findIndex((s) => s?.id === step) : step;
+        const setStepIndex = typeof step === "string"
+            ? currentTourSteps.findIndex((s) => s?.id === step)
+            : step;
         setCurrentStep(setStepIndex);
     };
     // - -
@@ -316,8 +397,11 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
     const pointerPadding = currentTourSteps?.[currentStep]?.pointerPadding ?? 30;
     const pointerPadOffset = pointerPadding / 2;
     const pointerRadius = currentTourSteps?.[currentStep]?.pointerRadius ?? 28;
-    const pointerEvents = pointerPosition && isOnbordaVisible ? 'pointer-events-none' : '';
-    return (_jsxs(_Fragment, { children: [_jsx("div", { "data-name": "onborda-site-wrapper", className: ` ${pointerEvents} `, children: children }), pointerPosition && isOnbordaVisible && CardComponent && currentTourObject && (_jsxs(Portal, { children: [_jsx(motion.div, { "data-name": "onborda-overlay", className: "absolute inset-0 pointer-events-none z-[997]", initial: "hidden", animate: isOnbordaVisible ? "visible" : "hidden", variants: variants, transition: { duration: 0.5 }, children: _jsx(motion.div, { "data-name": "onborda-pointer", className: "relative z-[998]", style: {
+    const pointerEvents = pointerPosition && isOnbordaVisible ? "pointer-events-none" : "";
+    return (_jsxs(_Fragment, { children: [_jsx("div", { "data-name": "onborda-site-wrapper", className: ` ${pointerEvents} `, children: children }), pointerPosition &&
+                isOnbordaVisible &&
+                CardComponent &&
+                currentTourObject && (_jsxs(Portal, { children: [_jsx(motion.div, { "data-name": "onborda-overlay", className: "absolute inset-0 pointer-events-none z-[997]", initial: "hidden", animate: isOnbordaVisible ? "visible" : "hidden", variants: variants, transition: { duration: 0.5 }, children: _jsx(motion.div, { "data-name": "onborda-pointer", className: "relative z-[998]", style: {
                                 boxShadow: `0 0 200vw 200vh rgba(${shadowRgb}, ${shadowOpacity})`,
                                 borderRadius: `${pointerRadius}px ${pointerRadius}px ${pointerRadius}px ${pointerRadius}px`,
                             }, initial: pointerPosition
@@ -334,6 +418,8 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                                     width: pointerPosition.width + pointerPadding,
                                     height: pointerPosition.height + pointerPadding,
                                 }
-                                : {}, transition: cardTransition, children: _jsx("div", { className: "absolute flex flex-col max-w-[100%] transition-all min-w-min pointer-events-auto z-[999]", "data-name": "onborda-card", style: getCardStyle(currentTourSteps?.[currentStep]?.side), children: _jsx(CardComponent, { step: currentTourSteps?.[currentStep], tour: currentTourObject, currentStep: currentStep, totalSteps: currentTourSteps?.length ?? 0, nextStep: nextStep, prevStep: prevStep, setStep: setStep, closeOnborda: closeOnborda, setOnbordaVisible: setOnbordaVisible, arrow: _jsx(CardArrow, { isVisible: currentTourSteps?.[currentStep] ? hasSelector(currentTourSteps?.[currentStep]) : false }), completedSteps: Array.from(completedSteps), pendingRouteChange: pendingRouteChange }) }) }) }), TourComponent && (_jsx(motion.div, { "data-name": 'onborda-tour-wrapper', className: 'fixed top-0 left-0 z-[998] w-screen h-screen pointer-events-none', children: _jsx(motion.div, { "data-name": 'onborda-tour', className: 'pointer-events-auto', children: _jsx(TourComponent, { tour: currentTourObject, currentTour: currentTour, currentStep: currentStep, setStep: setStep, completedSteps: Array.from(completedSteps), closeOnborda: closeOnborda }) }) }))] }))] }));
+                                : {}, transition: cardTransition, children: _jsx("div", { className: "absolute flex flex-col max-w-[100%] transition-all min-w-min pointer-events-auto z-[999]", "data-name": "onborda-card", style: getCardStyle(currentTourSteps?.[currentStep]?.side), children: _jsx(CardComponent, { step: currentTourSteps?.[currentStep], tour: currentTourObject, currentStep: currentStep, totalSteps: currentTourSteps?.length ?? 0, nextStep: nextStep, prevStep: prevStep, setStep: setStep, closeOnborda: closeOnborda, setOnbordaVisible: setOnbordaVisible, arrow: _jsx(CardArrow, { isVisible: currentTourSteps?.[currentStep]
+                                            ? hasSelector(currentTourSteps?.[currentStep])
+                                            : false }), completedSteps: Array.from(completedSteps), pendingRouteChange: pendingRouteChange }) }) }) }), TourComponent && (_jsx(motion.div, { "data-name": "onborda-tour-wrapper", className: "fixed top-0 left-0 z-[998] w-screen h-screen pointer-events-none", children: _jsx(motion.div, { "data-name": "onborda-tour", className: "pointer-events-auto", children: _jsx(TourComponent, { tour: currentTourObject, currentTour: currentTour, currentStep: currentStep, setStep: setStep, completedSteps: Array.from(completedSteps), closeOnborda: closeOnborda }) }) }))] }))] }));
 };
 export default Onborda;

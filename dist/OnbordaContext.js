@@ -1,6 +1,6 @@
 "use client";
 import { jsx as _jsx } from "react/jsx-runtime";
-import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, } from "react";
 // Example Hooks Usage:
 // const { setCurrentStep, closeOnborda, startOnborda } = useOnborda();
 // // To trigger a specific step
@@ -30,7 +30,7 @@ const OnbordaProvider = ({ children, tours = [], activeTour = null, defaultIsOnb
     }, [activeTour]);
     const setCurrentStep = useCallback((step, delay) => {
         // If step is a string, find the index of the step with that id
-        if (typeof step === 'string') {
+        if (typeof step === "string") {
             const index = currentTourSteps.findIndex((s) => s?.id === step);
             if (index === -1) {
                 throw new Error(`Step with id ${step} not found`);
@@ -49,7 +49,7 @@ const OnbordaProvider = ({ children, tours = [], activeTour = null, defaultIsOnb
     const closeOnborda = useCallback(() => {
         // If all steps are completed, call the onComplete function
         if (completedSteps.size === currentTourSteps.length) {
-            tours.find((tour) => (tour.tour) === currentTour)?.onComplete?.();
+            tours.find((tour) => tour.tour === currentTour)?.onComplete?.();
         }
         setOnbordaVisible(false);
         setCurrentTourState(null);
@@ -59,7 +59,9 @@ const OnbordaProvider = ({ children, tours = [], activeTour = null, defaultIsOnb
     }, [currentTour, currentTourSteps, completedSteps]);
     const initializeCompletedSteps = useCallback(async (tour) => {
         // Get the initial state of the completed steps
-        const completeSteps = tour?.initialCompletedStepsState && await tour.initialCompletedStepsState() || tour.steps.map(() => false);
+        const completeSteps = (tour?.initialCompletedStepsState &&
+            (await tour.initialCompletedStepsState())) ||
+            tour.steps.map(() => false);
         const firstIncomplete = completeSteps.findIndex((result) => !result);
         const completed = completeSteps.reduce((acc, result, index) => {
             if (result) {
@@ -79,10 +81,11 @@ const OnbordaProvider = ({ children, tours = [], activeTour = null, defaultIsOnb
         setCurrentTourState(tourName);
         const tour = tours.find((tour) => tour.tour === tourName);
         setCurrentTourStepsState(tour?.steps || []);
-        tour && initializeCompletedSteps(tour).then(r => {
-            setCurrentStep(initStep ?? r);
-            setOnbordaVisible(visible ?? defaultIsOnbordaVisible);
-        });
+        tour &&
+            initializeCompletedSteps(tour).then((r) => {
+                setCurrentStep(initStep ?? r);
+                setOnbordaVisible(visible ?? defaultIsOnbordaVisible);
+            });
     }, [tours]);
     const startOnborda = useCallback((tourName, visible, step) => {
         closeOnborda(); // Reset the current tour
@@ -99,7 +102,7 @@ const OnbordaProvider = ({ children, tours = [], activeTour = null, defaultIsOnb
             isOnbordaVisible,
             setOnbordaVisible,
             completedSteps,
-            setCompletedSteps
+            setCompletedSteps,
         }, children: children }));
 };
 export { OnbordaProvider, useOnborda };

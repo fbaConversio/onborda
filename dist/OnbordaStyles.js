@@ -77,11 +77,11 @@ export const getCardStyle = (side) => {
         default:
             // Default case if no side is specified. Center the card to the screen
             return {
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)', // Center the card
-                position: 'fixed', // Make sure it's positioned relative to the viewport
-                margin: '0',
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)", // Center the card
+                position: "fixed", // Make sure it's positioned relative to the viewport
+                margin: "0",
             };
     }
 };
