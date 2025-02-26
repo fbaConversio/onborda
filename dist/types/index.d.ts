@@ -46,6 +46,10 @@ export interface Step {
     selector?: string;
     /** A custom function to query the target element. Ignored if selector is provided. */
     customQuerySelector?: () => Element | null;
+    /** The CSS selector for the element to click on the next step. */
+    clickElementOnNext?: string;
+    /** The CSS selector for the element to click on the previous step. */
+    clickElementOnPrev?: string;
     /** The side where the step should be displayed */
     side?: "top" | "bottom" | "left" | "right" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | "left-top" | "left-bottom" | "right-top" | "right-bottom";
     /** Flag to show or hide the controls */

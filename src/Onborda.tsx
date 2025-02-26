@@ -18,7 +18,7 @@ const Onborda: React.FC<OnbordaProps> = ({
   children,
   shadowRgb = "0, 0, 0",
   shadowOpacity = "0.2",
-  cardTransition = { ease: "anticipate", duration: 0.6 },
+  cardTransition = { type: "spring", damping: 26, stiffness: 170 },
   cardComponent: CardComponent,
   tourComponent: TourComponent,
   debug = false,
@@ -55,9 +55,8 @@ const Onborda: React.FC<OnbordaProps> = ({
   const [currentRoute, setCurrentRoute] = useState<string | null>(path);
   const [pendingRouteChange, setPendingRouteChange] = useState(false);
 
-  // Add ref to track whether we're currently scrolling
-  const isScrollingRef = useRef<boolean>(false);
-  const scrollEndTimerRef = useRef<number | null>(null);
+  // Add a state to track if we're currently scrolling
+  const [isScrolling, setIsScrolling] = useState(false);
 
   const hasSelector = (step: Step): boolean => {
     return !!step?.selector || !!step?.customQuerySelector;
@@ -118,14 +117,21 @@ const Onborda: React.FC<OnbordaProps> = ({
             currentElementRef.current = element;
             elementFound = true;
 
-            // Only delay positioning if element needs scrolling, otherwise position immediately
+            // Enable pointer events on the element
+            if (step.interactable) {
+              const htmlElement = element as HTMLElement;
+              htmlElement.style.pointerEvents = "auto";
+            }
+
+            // If element is already visible, show the pointer immediately
+            // Otherwise, the scrolling effect will handle showing it after scrolling
             if (isVisible) {
-              // Element is already visible - update position immediately
+              setIsScrolling(false);
               updatePointerPosition();
               positioningTriggeredRef.current = true;
             } else {
-              // Element needs scrolling - let the scroll effect handle the delayed positioning
-              // The scroll useEffect will take care of positioning after scroll animation
+              // Element needs scrolling, hide pointer until scrolling completes
+              setIsScrolling(true);
               positioningTriggeredRef.current = false;
             }
           }
@@ -168,13 +174,15 @@ const Onborda: React.FC<OnbordaProps> = ({
                       htmlElement.style.pointerEvents = "auto";
                     }
 
-                    // Only delay positioning if element needs scrolling, otherwise position immediately
+                    // If element is already visible, show the pointer immediately
+                    // Otherwise, the scrolling effect will handle showing it after scrolling
                     if (isVisible) {
-                      // Element is already visible - update position immediately
+                      setIsScrolling(false);
                       updatePointerPosition();
                       positioningTriggeredRef.current = true;
                     } else {
-                      // Element needs scrolling - let the scroll effect handle the delayed positioning
+                      // Element needs scrolling, hide pointer until scrolling completes
+                      setIsScrolling(true);
                       positioningTriggeredRef.current = false;
                     }
 
@@ -261,6 +269,7 @@ const Onborda: React.FC<OnbordaProps> = ({
             height: 0,
           });
           positioningTriggeredRef.current = true;
+          setIsScrolling(false); // Make sure the cursor is visible for center positioning
           setElementToScroll(null);
           currentElementRef.current = null;
         }
@@ -336,79 +345,38 @@ const Onborda: React.FC<OnbordaProps> = ({
       const rect = elementToScroll.getBoundingClientRect();
       const isAbove = rect.top < 0;
 
-      // Mark that we're starting to scroll
-      isScrollingRef.current = true;
+      // Check if we need to scroll
+      const needsScrolling =
+        rect.top < 0 ||
+        rect.left < 0 ||
+        rect.bottom >
+          (window.innerHeight || document.documentElement.clientHeight) ||
+        rect.right >
+          (window.innerWidth || document.documentElement.clientWidth);
 
-      // Set up scroll end detection
-      const handleScrollEnd = () => {
-        if (isScrollingRef.current) {
-          debug && console.log("Onborda: Scrolling Completed");
-          isScrollingRef.current = false;
-
-          // Update pointer position when scrolling is complete
-          if (!positioningTriggeredRef.current) {
-            updatePointerPosition();
-            positioningTriggeredRef.current = true;
-          }
-        }
-      };
-
-      // Function to detect scroll end using fallback method
-      const detectScrollEnd = () => {
-        // Clear any existing timer
-        if (scrollEndTimerRef.current) {
-          clearTimeout(scrollEndTimerRef.current);
-        }
-
-        // Set new timer that fires when scrolling stops
-        scrollEndTimerRef.current = setTimeout(() => {
-          handleScrollEnd();
-        }, 100); // Short delay to detect when scrolling stops
-      };
-
-      // Set up modern scrollend event listener if supported
-      const supportsScrollEnd = "onscrollend" in window;
-
-      if (supportsScrollEnd) {
-        window.addEventListener("scrollend", handleScrollEnd, { once: true });
+      if (needsScrolling) {
+        // Hide the pointer during scrolling
+        setIsScrolling(true);
       }
 
-      // Set up fallback scroll listener
-      const scrollListener = () => {
-        if (isScrollingRef.current) {
-          detectScrollEnd();
-        }
-      };
-
-      window.addEventListener("scroll", scrollListener);
-
-      // Start scrolling
+      // Start scroll animation
       elementToScroll.scrollIntoView({
         block: isAbove ? "center" : "center",
         inline: "center",
         behavior: "smooth",
       });
 
-      // Also set a maximum timeout for safety
-      const maxScrollTimeout = setTimeout(() => {
-        if (isScrollingRef.current) {
-          debug && console.log("Onborda: Max Scroll Timeout Reached");
-          handleScrollEnd();
-        }
-      }, 1000); // Fallback timeout if scroll events don't fire properly
+      // Wait for scrolling to complete, then show the pointer
+      const scrollTimer = setTimeout(() => {
+        // Update the position once before showing
+        updatePointerPosition();
+        // Show the pointer with the correct position
+        setIsScrolling(false);
+        positioningTriggeredRef.current = true;
+      }, 600); // Matches the typical smooth scroll duration
 
       return () => {
-        // Clean up all listeners
-        if (supportsScrollEnd) {
-          window.removeEventListener("scrollend", handleScrollEnd);
-        }
-        window.removeEventListener("scroll", scrollListener);
-
-        // Clear any timers
-        if (scrollEndTimerRef.current) {
-          clearTimeout(scrollEndTimerRef.current);
-        }
-        clearTimeout(maxScrollTimeout);
+        clearTimeout(scrollTimer);
       };
     }
   }, [elementToScroll, isOnbordaVisible]);
@@ -440,28 +408,73 @@ const Onborda: React.FC<OnbordaProps> = ({
   };
 
   // - -
-  // Update pointer position on window resize
+  // Update pointer position on window resize and scroll
   useEffect(() => {
     if (isOnbordaVisible) {
+      // Only listen for resize events here
       window.addEventListener("resize", updatePointerPosition);
-      window.addEventListener("scroll", updatePointerPosition);
+
       return () => {
         window.removeEventListener("resize", updatePointerPosition);
-        window.removeEventListener("scroll", updatePointerPosition);
       };
     }
   }, [currentStep, currentTourSteps, isOnbordaVisible]);
 
+  function simulateClick(selector: string | undefined) {
+    if (!selector) return;
+
+    const element = document.querySelector(selector);
+    if (element instanceof HTMLElement) {
+      element.click();
+    } else if (element) {
+      // Create and dispatch a click event for non-HTMLElements
+      const clickEvent = new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+      });
+      element.dispatchEvent(clickEvent);
+    }
+  }
+
   // - -
   // Step Controls
+  const [isStepChanging, setIsStepChanging] = useState(false);
+
   const nextStep = async () => {
-    const nextStepIndex = currentStep + 1;
-    await setStep(nextStepIndex);
+    if (isStepChanging) return;
+    setIsStepChanging(true);
+
+    debug && console.log("Onborda: Next Step", currentTourSteps?.[currentStep]);
+
+    if (currentTourSteps?.[currentStep]?.clickElementOnNext) {
+      simulateClick(currentTourSteps?.[currentStep]?.clickElementOnNext);
+    }
+
+    setTimeout(async () => {
+      const nextStepIndex = currentStep + 1;
+      await setStep(nextStepIndex);
+    }, 100);
+
+    setTimeout(() => setIsStepChanging(false), 500);
   };
 
   const prevStep = async () => {
-    const prevStepIndex = currentStep - 1;
-    await setStep(prevStepIndex);
+    if (isStepChanging) return;
+    setIsStepChanging(true);
+
+    debug &&
+      console.log("Onborda: Previous Step", currentTourSteps?.[currentStep]);
+
+    if (currentTourSteps?.[currentStep]?.clickElementOnPrev) {
+      simulateClick(currentTourSteps?.[currentStep]?.clickElementOnPrev);
+    }
+
+    setTimeout(async () => {
+      const prevStepIndex = currentStep - 1;
+      await setStep(prevStepIndex);
+    }, 100);
+    setTimeout(() => setIsStepChanging(false), 500);
   };
 
   const setStep = async (step: number | string) => {
@@ -512,6 +525,19 @@ const Onborda: React.FC<OnbordaProps> = ({
         {children}
       </div>
 
+      {pointerPosition &&
+        isOnbordaVisible &&
+        CardComponent &&
+        currentTourObject &&
+        isScrolling && (
+          <motion.div
+            className="fixed inset-0 pointer-events-none z-[997]"
+            style={{
+              background: `rgba(${shadowRgb}, ${shadowOpacity})`,
+            }}
+          />
+        )}
+
       {/* Onborda Overlay Step Content */}
       {pointerPosition &&
         isOnbordaVisible &&
@@ -550,15 +576,22 @@ const Onborda: React.FC<OnbordaProps> = ({
                         y: pointerPosition.y - pointerPadOffset,
                         width: pointerPosition.width + pointerPadding,
                         height: pointerPosition.height + pointerPadding,
+                        opacity: isScrolling ? 0 : 1,
                       }
                     : {}
                 }
-                transition={cardTransition}
+                transition={{
+                  ...cardTransition,
+                  opacity: { duration: 0 }, // Smooth fade for opacity
+                }}
               >
                 {/* Card */}
-                <div
+                <motion.div
                   className="absolute flex flex-col max-w-[100%] transition-all min-w-min pointer-events-auto z-[999]"
                   data-name="onborda-card"
+                  animate={{
+                    opacity: isScrolling ? 0 : 1,
+                  }}
                   style={getCardStyle(
                     currentTourSteps?.[currentStep]?.side as any
                   )}
@@ -585,12 +618,15 @@ const Onborda: React.FC<OnbordaProps> = ({
                     completedSteps={Array.from(completedSteps)}
                     pendingRouteChange={pendingRouteChange}
                   />
-                </div>
+                </motion.div>
               </motion.div>
             </motion.div>
             {TourComponent && (
               <motion.div
                 data-name={"onborda-tour-wrapper"}
+                animate={{
+                  opacity: isScrolling ? 0 : 1,
+                }}
                 className={
                   "fixed top-0 left-0 z-[998] w-screen h-screen pointer-events-none"
                 }
