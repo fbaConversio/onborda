@@ -5,7 +5,8 @@ import { useOnborda } from "./OnbordaContext";
 import { motion } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
 import { Portal } from "@radix-ui/react-portal";
-import { getCardStyle, getArrowStyle } from "./OnbordaStyles";
+import { autoUpdate } from "@floating-ui/react-dom";
+import { computeCardPosition, getArrowStyle, getViewportDimensions, } from "./OnbordaStyles";
 /**
  * Onborda Component
  * @param {OnbordaProps} props
@@ -18,6 +19,18 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
     const currentElementRef = useRef(null);
     // Add a ref to track if we've triggered positioning for the current element
     const positioningTriggeredRef = useRef(false);
+    // Track window size
+    const [windowSize, setWindowSize] = useState({
+        width: typeof window !== "undefined" ? window.innerWidth : 0,
+        height: typeof window !== "undefined" ? window.innerHeight : 0,
+    });
+    // Floating UI state
+    const [floatingState, setFloatingState] = useState(null);
+    // Refs for card and arrow elements for Floating UI
+    const cardRef = useRef(null);
+    const arrowRef = useRef(null);
+    // Cleanup function for autoUpdate
+    const cleanupRef = useRef(null);
     // - -
     // Route Changes
     const router = useRouter();
@@ -26,6 +39,17 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
     const [pendingRouteChange, setPendingRouteChange] = useState(false);
     // Add a state to track if we're currently scrolling
     const [isScrolling, setIsScrolling] = useState(false);
+    // Add state to track card dimensions
+    const [cardDimensions, setCardDimensions] = useState({
+        width: 300, // Default estimation
+        height: 200, // Default estimation
+    });
+    // Improve animation performance with faster transitions when repositioning
+    const [optimizedCardTransition, setOptimizedCardTransition] = useState(cardTransition);
+    // Track initial positioning to avoid recomputing unnecessarily
+    const isInitialPositioningDoneRef = useRef(false);
+    // Add state to control card visibility animation
+    const [isCardReadyToShow, setIsCardReadyToShow] = useState(false);
     const hasSelector = (step) => {
         return !!step?.selector || !!step?.customQuerySelector;
     };
@@ -44,6 +68,125 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
     useEffect(() => {
         !pendingRouteChange && setCurrentRoute(path);
     }, [path, pendingRouteChange]);
+    // Update window size on resize
+    useEffect(() => {
+        const handleResize = () => {
+            const viewport = getViewportDimensions();
+            setWindowSize({
+                width: viewport.width,
+                height: viewport.height,
+            });
+        };
+        if (typeof window !== "undefined") {
+            handleResize(); // Set initial size
+            window.addEventListener("resize", handleResize);
+            return () => window.removeEventListener("resize", handleResize);
+        }
+    }, []);
+    // Optimize by using a single update call that manages both pointer and card position
+    const updatePositions = async (force = false) => {
+        if (!isOnbordaVisible ||
+            !currentElementRef.current ||
+            !cardRef.current ||
+            (isScrolling && !force)) {
+            return;
+        }
+        // Initially hide card until positioning is complete
+        setIsCardReadyToShow(false);
+        const preferredSide = currentTourSteps?.[currentStep]?.side || "bottom";
+        try {
+            // First update the pointer position (highlight)
+            if (currentElementRef.current) {
+                const rect = currentElementRef.current.getBoundingClientRect();
+                const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft || 0;
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop || 0;
+                setPointerPosition({
+                    x: rect.left + scrollLeft,
+                    y: rect.top + scrollTop,
+                    width: rect.width,
+                    height: rect.height,
+                });
+            }
+            // Then compute card position with Floating UI
+            const newFloatingState = await computeCardPosition(currentElementRef.current, cardRef.current, arrowRef.current, preferredSide, debug);
+            if (newFloatingState) {
+                setFloatingState(newFloatingState);
+                // Differentiate between initial positioning and updates
+                if (!isInitialPositioningDoneRef.current) {
+                    // For initial positioning, use the regular animation
+                    setOptimizedCardTransition(cardTransition);
+                    isInitialPositioningDoneRef.current = true;
+                }
+                else if (force) {
+                    // Force updates (like after scrolling or step changes) use a quick tween
+                    setOptimizedCardTransition({
+                        ...cardTransition,
+                        type: "tween",
+                        duration: 0.15,
+                    });
+                }
+                else {
+                    // For regular updates (autoUpdate during scrolling/resizing), use instant positioning
+                    setOptimizedCardTransition({
+                        type: "tween",
+                        duration: 0,
+                    });
+                }
+                // Once positioning is complete, set card ready to show after a short delay
+                // to ensure position has stabilized
+                setTimeout(() => {
+                    setIsCardReadyToShow(true);
+                }, 50);
+            }
+        }
+        catch (error) {
+            console.error("Error updating positions:", error);
+        }
+    };
+    // Replace updateCardPosition with our more efficient version
+    const updateCardPosition = () => updatePositions();
+    // Setup Floating UI autoUpdate when reference element or card changes
+    useEffect(() => {
+        // Clean up previous autoUpdate if it exists
+        if (cleanupRef.current) {
+            cleanupRef.current();
+            cleanupRef.current = null;
+        }
+        if (isOnbordaVisible && currentElementRef.current && cardRef.current) {
+            // Reset positioning flag on new step to ensure proper animation
+            if (currentStep !== undefined) {
+                isInitialPositioningDoneRef.current = false;
+            }
+            // Skip initial positioning during scrolling, we'll do it after scroll completes
+            if (!isScrolling) {
+                // Initial positioning with force flag
+                updatePositions(true);
+            }
+            // Setup autoUpdate with optimized configuration for better performance
+            cleanupRef.current = autoUpdate(currentElementRef.current, cardRef.current, 
+            // For autoUpdate, don't use force flag - repositioning should be instant
+            () => updatePositions(false), {
+                // Use more efficient update strategy
+                ancestorScroll: true, // Update on ancestor scroll
+                ancestorResize: true, // Update on ancestor resize
+                elementResize: true, // Update on element resize
+                layoutShift: true, // Update on layout shift
+                animationFrame: false, // Don't use animationFrame which can feel laggy
+            });
+        }
+        return () => {
+            if (cleanupRef.current) {
+                cleanupRef.current();
+                cleanupRef.current = null;
+            }
+        };
+    }, [
+        isOnbordaVisible,
+        currentStep,
+        // We specifically don't include these deps to prevent excessive recalculations:
+        // currentElementRef.current,
+        // cardRef.current,
+    ]);
     // - -
     // Initialisze
     useEffect(() => {
@@ -51,6 +194,10 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
         if (isOnbordaVisible && currentTourSteps) {
             // Reset the positioning triggered flag when step changes
             positioningTriggeredRef.current = false;
+            // Reset initial positioning flag on step change to ensure proper rendering
+            isInitialPositioningDoneRef.current = false;
+            // Initially hide card until positioning is complete
+            setIsCardReadyToShow(false);
             debug &&
                 console.log("Onborda: Current Step Changed", currentStep, completedSteps);
             const step = currentTourSteps[currentStep];
@@ -79,12 +226,33 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                             const htmlElement = element;
                             htmlElement.style.pointerEvents = "auto";
                         }
-                        // If element is already visible, show the pointer immediately
-                        // Otherwise, the scrolling effect will handle showing it after scrolling
+                        // If element is already visible, position immediately with no animation
                         if (isVisible) {
                             setIsScrolling(false);
-                            updatePointerPosition();
+                            // First update pointer position
+                            if (currentElementRef.current) {
+                                const pos = getElementPosition(currentElementRef.current);
+                                setPointerPosition(pos);
+                            }
                             positioningTriggeredRef.current = true;
+                            // Use an immediate update to prevent any positioning "jumps"
+                            setTimeout(() => {
+                                if (isOnbordaVisible &&
+                                    currentElementRef.current &&
+                                    cardRef.current) {
+                                    // Use zero-duration animation for immediate positioning
+                                    setOptimizedCardTransition({
+                                        type: "tween",
+                                        duration: 0,
+                                    });
+                                    // Force immediate positioning
+                                    updatePositions(true);
+                                    // Then switch to regular animation for subsequent updates
+                                    setTimeout(() => {
+                                        isInitialPositioningDoneRef.current = true;
+                                    }, 50);
+                                }
+                            }, 0);
                         }
                         else {
                             // Element needs scrolling, hide pointer until scrolling completes
@@ -130,6 +298,8 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                                             setIsScrolling(false);
                                             updatePointerPosition();
                                             positioningTriggeredRef.current = true;
+                                            // Initialize positioning with Floating UI
+                                            updateCardPosition();
                                         }
                                         else {
                                             // Element needs scrolling, hide pointer until scrolling completes
@@ -203,6 +373,8 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                     setIsScrolling(false); // Make sure the cursor is visible for center positioning
                     setElementToScroll(null);
                     currentElementRef.current = null;
+                    // Reset floating state for center positioning
+                    setFloatingState(null);
                 }
                 // Prefetch the next route
                 const nextStep = currentTourSteps[currentStep + 1];
@@ -221,6 +393,11 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
             }
             // Cleanup any event listeners we may have added
             cleanup.forEach((fn) => fn());
+            // Clean up floating UI update
+            if (cleanupRef.current) {
+                cleanupRef.current();
+                cleanupRef.current = null;
+            }
         };
     }, [
         currentTour, // Re-run the effect when the current tour changes
@@ -278,6 +455,10 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
             if (needsScrolling) {
                 // Hide the pointer during scrolling
                 setIsScrolling(true);
+                // Also hide the card by marking it not ready
+                setIsCardReadyToShow(false);
+                // Reset initial positioning flag for a fresh animation after scroll
+                isInitialPositioningDoneRef.current = false;
             }
             // Start scroll animation
             elementToScroll.scrollIntoView({
@@ -287,12 +468,21 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
             });
             // Wait for scrolling to complete, then show the pointer
             const scrollTimer = setTimeout(() => {
-                // Update the position once before showing
-                updatePointerPosition();
                 // Show the pointer with the correct position
                 setIsScrolling(false);
                 positioningTriggeredRef.current = true;
-            }, 600); // Matches the typical smooth scroll duration
+                // Use zero-duration animation for immediate positioning after scroll
+                setOptimizedCardTransition({
+                    type: "tween",
+                    duration: 0,
+                });
+                // Force immediate positioning after scrolling
+                updatePositions(true);
+                // Then restore animation for user interactions
+                setTimeout(() => {
+                    isInitialPositioningDoneRef.current = true;
+                }, 50);
+            }, 400); // Reduced from 600ms for faster response
             return () => {
                 clearTimeout(scrollTimer);
             };
@@ -313,25 +503,36 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                 else {
                     // if the element is not found, place the pointer at the center of the screen
                     setPointerPosition({
-                        x: window.innerWidth / 2,
-                        y: window.innerHeight / 2,
+                        x: windowSize.width / 2,
+                        y: windowSize.height / 2,
                         width: 0,
                         height: 0,
                     });
                     setElementToScroll(null);
                     currentElementRef.current = null;
+                    // Reset floating state for center positioning
+                    setFloatingState(null);
                 }
             }
         }
     };
-    // - -
-    // Update pointer position on window resize and scroll
+    // Update pointer position on window resize
     useEffect(() => {
         if (isOnbordaVisible) {
-            // Only listen for resize events here
-            window.addEventListener("resize", updatePointerPosition);
+            // Use our combined update instead of just pointer
+            const handleResize = () => {
+                // Hide card during resize
+                setIsCardReadyToShow(false);
+                // Use immediate positioning for resize events
+                setOptimizedCardTransition({
+                    type: "tween",
+                    duration: 0,
+                });
+                updatePositions(true);
+            };
+            window.addEventListener("resize", handleResize);
             return () => {
-                window.removeEventListener("resize", updatePointerPosition);
+                window.removeEventListener("resize", handleResize);
             };
         }
     }, [currentStep, currentTourSteps, isOnbordaVisible]);
@@ -387,6 +588,8 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
     const changeStep = async (step) => {
         if (step === null)
             return;
+        // Hide card immediately when changing steps
+        setIsCardReadyToShow(false);
         const setStepIndex = typeof step === "string"
             ? currentTourSteps.findIndex((s) => s?.id === step)
             : step;
@@ -396,6 +599,8 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
         if (isStepChanging)
             return;
         setIsStepChanging(true);
+        // Hide card immediately when setting a new step
+        setIsCardReadyToShow(false);
         if (currentTourSteps?.[Number(previousStep)]?.clickElementOnUnset &&
             previousStep !== null) {
             debug &&
@@ -422,7 +627,8 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
         if (!isVisible) {
             return null;
         }
-        return (_jsx("svg", { viewBox: "0 0 54 54", "data-name": "onborda-arrow", className: "absolute w-6 h-6 origin-center", style: getArrowStyle(currentTourSteps?.[currentStep]?.side), children: _jsx("path", { id: "triangle", d: "M27 27L0 0V54L27 27Z", fill: "currentColor" }) }));
+        // Use the arrow reference for Floating UI
+        return (_jsx("div", { ref: arrowRef, "data-name": "onborda-arrow", className: "absolute pointer-events-none", children: _jsx("svg", { viewBox: "0 0 54 54", className: "w-6 h-6 origin-center", style: getArrowStyle(floatingState), children: _jsx("path", { id: "triangle", d: "M27 27L0 0V54L27 27Z", fill: "currentColor" }) }) }));
     };
     // - -
     // Overlay Variants
@@ -436,6 +642,41 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
     const pointerPadOffset = pointerPadding / 2;
     const pointerRadius = currentTourSteps?.[currentStep]?.pointerRadius ?? 28;
     const pointerEvents = pointerPosition && isOnbordaVisible ? "pointer-events-none" : "";
+    // Measure card dimensions when it changes
+    useEffect(() => {
+        if (cardRef.current && isOnbordaVisible) {
+            const updateCardSize = () => {
+                const rect = cardRef.current?.getBoundingClientRect();
+                if (rect) {
+                    const newDimensions = {
+                        width: rect.width,
+                        height: rect.height,
+                    };
+                    // Only update if dimensions actually changed
+                    if (newDimensions.width !== cardDimensions.width ||
+                        newDimensions.height !== cardDimensions.height) {
+                        setCardDimensions(newDimensions);
+                        if (debug) {
+                            console.log("Onborda: Card dimensions updated", newDimensions);
+                        }
+                        // Update positioning when card size changes
+                        updateCardPosition();
+                    }
+                }
+            };
+            // Initial measurement
+            updateCardSize();
+            // Set up resize observer to detect content changes in the card
+            const resizeObserver = new ResizeObserver(updateCardSize);
+            resizeObserver.observe(cardRef.current);
+            return () => {
+                if (cardRef.current) {
+                    resizeObserver.unobserve(cardRef.current);
+                }
+                resizeObserver.disconnect();
+            };
+        }
+    }, [isOnbordaVisible, currentStep, windowSize]);
     return (_jsxs(_Fragment, { children: [_jsx("div", { "data-name": "onborda-site-wrapper", className: ` ${pointerEvents} `, children: children }), pointerPosition &&
                 isOnbordaVisible &&
                 CardComponent &&
@@ -445,7 +686,7 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                 } })), pointerPosition &&
                 isOnbordaVisible &&
                 CardComponent &&
-                currentTourObject && (_jsxs(Portal, { children: [_jsx(motion.div, { "data-name": "onborda-overlay", className: "absolute inset-0 pointer-events-none z-[997]", initial: "hidden", animate: isOnbordaVisible ? "visible" : "hidden", variants: variants, transition: { duration: 0.5 }, children: _jsx(motion.div, { "data-name": "onborda-pointer", className: "relative z-[998]", style: {
+                currentTourObject && (_jsxs(Portal, { children: [_jsx(motion.div, { "data-name": "onborda-overlay", className: "absolute inset-0 pointer-events-none z-[997]", initial: "hidden", animate: isOnbordaVisible ? "visible" : "hidden", variants: variants, transition: { duration: 0.3 }, children: _jsx(motion.div, { "data-name": "onborda-pointer", className: "relative z-[998]", style: {
                                 boxShadow: `0 0 200vw 200vh rgba(${shadowRgb}, ${shadowOpacity})`,
                                 borderRadius: `${pointerRadius}px ${pointerRadius}px ${pointerRadius}px ${pointerRadius}px`,
                             }, initial: pointerPosition
@@ -464,11 +705,22 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                                     opacity: isScrolling ? 0 : 1,
                                 }
                                 : {}, transition: {
-                                ...cardTransition,
-                                opacity: { duration: 0 }, // Smooth fade for opacity
-                            }, children: _jsx(motion.div, { className: "absolute flex flex-col max-w-[100%] transition-all min-w-min pointer-events-auto z-[999]", "data-name": "onborda-card", animate: {
-                                    opacity: isScrolling ? 0 : 1,
-                                }, style: getCardStyle(currentTourSteps?.[currentStep]?.side), children: _jsx(CardComponent, { step: currentTourSteps?.[currentStep], tour: currentTourObject, currentStep: currentStep, totalSteps: currentTourSteps?.length ?? 0, nextStep: nextStep, prevStep: prevStep, setStep: setStep, closeOnborda: closeOnborda, setOnbordaVisible: setOnbordaVisible, arrow: _jsx(CardArrow, { isVisible: currentTourSteps?.[currentStep]
+                                ...optimizedCardTransition,
+                                opacity: { duration: 0.1 }, // Faster fade for opacity
+                            }, children: _jsx(motion.div, { ref: cardRef, className: "absolute flex flex-col max-w-[100%] transition-all min-w-min pointer-events-auto z-[999]", "data-name": "onborda-card", initial: { opacity: 0 }, animate: {
+                                    opacity: isScrolling ? 0 : isCardReadyToShow ? 1 : 0,
+                                    x: floatingState?.x,
+                                    y: floatingState?.y,
+                                }, transition: {
+                                    ...optimizedCardTransition,
+                                    opacity: { duration: 0.25, delay: 0.05 }, // Smooth fade-in after positioning
+                                }, style: {
+                                    position: floatingState?.strategy || "absolute",
+                                    top: 0,
+                                    left: 0,
+                                    transform: "none", // Floating UI handles positioning with x,y
+                                    visibility: floatingState ? "visible" : "hidden",
+                                }, children: _jsx(CardComponent, { step: currentTourSteps?.[currentStep], tour: currentTourObject, currentStep: currentStep, totalSteps: currentTourSteps?.length ?? 0, nextStep: nextStep, prevStep: prevStep, setStep: setStep, closeOnborda: closeOnborda, setOnbordaVisible: setOnbordaVisible, arrow: _jsx(CardArrow, { isVisible: currentTourSteps?.[currentStep]
                                             ? hasSelector(currentTourSteps?.[currentStep])
                                             : false }), completedSteps: Array.from(completedSteps), pendingRouteChange: pendingRouteChange }) }) }) }), TourComponent && (_jsx(motion.div, { "data-name": "onborda-tour-wrapper", animate: {
                             opacity: isScrolling ? 0 : 1,
