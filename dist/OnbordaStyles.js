@@ -1,4 +1,8 @@
-export const getCardStyle = (side) => {
+export function getCardStyle(side, extendSides) {
+    const sideStyle = extendSides?.[side] || {};
+    if (Object.keys(sideStyle).length > 0) {
+        return sideStyle;
+    }
     switch (side) {
         case "top":
             return {
@@ -84,7 +88,7 @@ export const getCardStyle = (side) => {
                 margin: "0",
             };
     }
-};
+}
 export const getArrowStyle = (side) => {
     switch (side) {
         case "bottom":

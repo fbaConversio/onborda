@@ -36,6 +36,7 @@ const Onborda: React.FC<OnbordaProps> = ({
   debug = false,
   observerTimeout = 5000,
   breakpoints = defaultBreakpoints,
+  extendSides = {},
 }: OnbordaProps) => {
   const {
     currentTour,
@@ -577,12 +578,15 @@ const Onborda: React.FC<OnbordaProps> = ({
   const pointerEvents =
     pointerPosition && isOnbordaVisible ? "pointer-events-none" : "";
 
-  const { currentSide, breakpoint } = useBreakpoint(
+  const { currentSide, breakpoint, style } = useBreakpoint({
     breakpoints,
-    currentTourSteps?.[currentStep]
-  );
+    extendSides,
+    currentStep: currentTourSteps?.[currentStep],
+  });
 
-  console.log(currentSide, breakpoint);
+  debug &&
+    console.log("Onborda: currentSide, breakpoint", currentSide, breakpoint);
+
   return (
     <>
       {/* Container for the Website content */}
@@ -657,7 +661,7 @@ const Onborda: React.FC<OnbordaProps> = ({
                   animate={{
                     opacity: isScrolling ? 0 : 1,
                   }}
-                  style={getCardStyle(currentSide)}
+                  style={style}
                 >
                   <CardComponent
                     step={currentTourSteps?.[currentStep]!}

@@ -41,7 +41,7 @@ export interface OnbordaContextType {
   completedSteps: Set<number>;
   /** setstate function to set the completed steps */
   setCompletedSteps: React.Dispatch<React.SetStateAction<Set<number>>>;
-  /** flag to check if the step is changing */
+  /** flag to check if the step is changing, can be used to prevent multiple clicks on the same step by disabling the button for instance */
   isStepChanging: boolean;
   /** function to set the step changing */
   setIsStepChanging: (isStepChanging: boolean) => void;
@@ -62,6 +62,9 @@ export type Side =
   | "left-bottom"
   | "right-top"
   | "right-bottom";
+
+// Adding a new type that extends Side to allow any string
+export type ExtendedSide = Side | (string & {});
 
 // Step
 export interface Step {
@@ -89,9 +92,7 @@ export interface Step {
 
   // Options
   /** The side where the step should be displayed for each breakpoint, setting the default will apply to all breakpoints, setting a specific breakpoint will override the default */
-  side?: Partial<Record<Breakpoint, Side>> & {
-    [key: string]: Side;
-  };
+  side?: Partial<Record<Breakpoint, ExtendedSide>>;
   /** Flag to show or hide the controls */
   showControls?: boolean;
   /** Padding around the pointer */
@@ -174,7 +175,8 @@ export interface OnbordaProps {
   tourComponent?: React.ComponentType<TourComponentProps>;
   /**
    * Breakpoints for the Onborda.
-   * @default {
+   * @default
+   * {
    *   xs: 480,
    *   sm: 640,
    *   md: 768,
@@ -186,6 +188,28 @@ export interface OnbordaProps {
    */
   breakpoints?: Partial<Record<Breakpoint, number>> & {
     [key: string]: number;
+  };
+
+  /** Extend the default sides of the Onborda with custom CSS.
+   * @example
+   * {
+   *   customSide: {
+   *     transform: "translate(-50%, 0)",
+   *     left: "50%",
+   *     bottom: "100%",
+   *     marginBottom: "25px",
+   *   },
+   * }
+   *
+   * and then use it in the side prop in the step:
+   * {
+   *   side: {
+   *     default: "customSide",
+   *   },
+   * }
+   */
+  extendSides?: {
+    [key: string]: React.CSSProperties;
   };
 
   /** Flag to enable or disable debug mode */

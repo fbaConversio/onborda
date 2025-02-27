@@ -1,14 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Step, Breakpoint, Side } from "../types";
+import { Step, Breakpoint, Side, ExtendedSide } from "../types";
 import { defaultBreakpoints } from "../Onborda";
+import { getCardStyle } from "../OnbordaStyles";
 
 // Define the screen size type
 type ScreenSize = {
   width: number;
   height: number;
   breakpoint: string;
-  currentSide: Side;
+  currentSide: ExtendedSide;
+  style: React.CSSProperties;
 };
 
 /**
@@ -17,17 +19,25 @@ type ScreenSize = {
  * @param currentStep Current step from the tour
  * @returns Current screen dimensions, responsive flags, and the appropriate side for the current breakpoint
  */
-export const useBreakpoint = (
+export const useBreakpoint = ({
+  breakpoints,
+  extendSides,
+  currentStep,
+}: {
   breakpoints: Partial<Record<Breakpoint, number>> & {
     [key: string]: number;
-  } = defaultBreakpoints,
-  currentStep?: Step
-): ScreenSize => {
+  };
+  extendSides: {
+    [key: string]: React.CSSProperties;
+  };
+  currentStep?: Step;
+}): ScreenSize => {
   const [screenSize, setScreenSize] = useState<ScreenSize>({
     width: typeof window !== "undefined" ? window.innerWidth : 0,
     height: typeof window !== "undefined" ? window.innerHeight : 0,
     breakpoint: "default",
     currentSide: "bottom",
+    style: {},
   });
 
   useEffect(() => {
@@ -66,7 +76,7 @@ export const useBreakpoint = (
     }
 
     // Determine the appropriate side based on the current breakpoint and step configuration
-    let currentSide: Side = "bottom";
+    let currentSide: ExtendedSide = "bottom";
 
     if (currentStep?.side) {
       // Mobile-first approach: find all applicable breakpoints for the current width
@@ -94,7 +104,7 @@ export const useBreakpoint = (
         const breakpointValue =
           breakpoints[breakpointKey as keyof typeof breakpoints] || 0;
         if (width >= breakpointValue) {
-          currentSide = sideValue as Side;
+          currentSide = sideValue as ExtendedSide;
         } else {
           // Stop once we reach a breakpoint larger than current width
           break;
@@ -102,11 +112,14 @@ export const useBreakpoint = (
       }
     }
 
+    const style = getCardStyle(currentSide, extendSides);
+
     setScreenSize({
       width,
       height,
       breakpoint: currentBreakpoint,
       currentSide,
+      style,
     });
   };
 

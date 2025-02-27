@@ -5,7 +5,7 @@ import { useOnborda } from "./OnbordaContext";
 import { motion } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
 import { Portal } from "@radix-ui/react-portal";
-import { getCardStyle, getArrowStyle } from "./OnbordaStyles";
+import { getArrowStyle } from "./OnbordaStyles";
 import useBreakpoint from "./hooks/useBreakpoint";
 /**
  * Onborda Component
@@ -21,7 +21,7 @@ export const defaultBreakpoints = {
     "2xl": 1536,
     "3xl": 1920,
 };
-const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardTransition = { type: "spring", damping: 26, stiffness: 170 }, cardComponent: CardComponent, tourComponent: TourComponent, debug = false, observerTimeout = 5000, breakpoints = defaultBreakpoints, }) => {
+const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardTransition = { type: "spring", damping: 26, stiffness: 170 }, cardComponent: CardComponent, tourComponent: TourComponent, debug = false, observerTimeout = 5000, breakpoints = defaultBreakpoints, extendSides = {}, }) => {
     const { currentTour, currentStep, setCurrentStep, isOnbordaVisible, currentTourSteps, completedSteps, setCompletedSteps, tours, closeOnborda, setOnbordaVisible, isStepChanging, setIsStepChanging, } = useOnborda();
     const [elementToScroll, setElementToScroll] = useState(null);
     const [pointerPosition, setPointerPosition] = useState(null);
@@ -446,8 +446,13 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
     const pointerPadOffset = pointerPadding / 2;
     const pointerRadius = currentTourSteps?.[currentStep]?.pointerRadius ?? 28;
     const pointerEvents = pointerPosition && isOnbordaVisible ? "pointer-events-none" : "";
-    const { currentSide, breakpoint } = useBreakpoint(breakpoints, currentTourSteps?.[currentStep]);
-    console.log(currentSide, breakpoint);
+    const { currentSide, breakpoint, style } = useBreakpoint({
+        breakpoints,
+        extendSides,
+        currentStep: currentTourSteps?.[currentStep],
+    });
+    debug &&
+        console.log("Onborda: currentSide, breakpoint", currentSide, breakpoint);
     return (_jsxs(_Fragment, { children: [_jsx("div", { "data-name": "onborda-site-wrapper", className: ` ${pointerEvents} `, children: children }), pointerPosition &&
                 isOnbordaVisible &&
                 CardComponent &&
@@ -480,7 +485,7 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                                 opacity: { duration: 0 }, // Smooth fade for opacity
                             }, children: _jsx(motion.div, { className: "absolute flex flex-col max-w-[100%] transition-all min-w-min pointer-events-auto z-[999]", "data-name": "onborda-card", animate: {
                                     opacity: isScrolling ? 0 : 1,
-                                }, style: getCardStyle(currentSide), children: _jsx(CardComponent, { step: currentTourSteps?.[currentStep], tour: currentTourObject, currentStep: currentStep, totalSteps: currentTourSteps?.length ?? 0, nextStep: nextStep, prevStep: prevStep, setStep: setStep, closeOnborda: closeOnborda, setOnbordaVisible: setOnbordaVisible, arrow: _jsx(CardArrow, { isVisible: currentTourSteps?.[currentStep]
+                                }, style: style, children: _jsx(CardComponent, { step: currentTourSteps?.[currentStep], tour: currentTourObject, currentStep: currentStep, totalSteps: currentTourSteps?.length ?? 0, nextStep: nextStep, prevStep: prevStep, setStep: setStep, closeOnborda: closeOnborda, setOnbordaVisible: setOnbordaVisible, arrow: _jsx(CardArrow, { isVisible: currentTourSteps?.[currentStep]
                                             ? hasSelector(currentTourSteps?.[currentStep])
                                             : false }), completedSteps: Array.from(completedSteps), pendingRouteChange: pendingRouteChange }) }) }) }), TourComponent && (_jsx(motion.div, { "data-name": "onborda-tour-wrapper", animate: {
                             opacity: isScrolling ? 0 : 1,

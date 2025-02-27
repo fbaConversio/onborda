@@ -1,8 +1,17 @@
 import React from "react";
 
-export const getCardStyle: (side: string) => React.CSSProperties = (
-  side: string
-) => {
+export function getCardStyle(
+  side: string,
+  extendSides?: {
+    [key: string]: React.CSSProperties;
+  }
+): React.CSSProperties {
+  const sideStyle = extendSides?.[side] || {};
+
+  if (Object.keys(sideStyle).length > 0) {
+    return sideStyle;
+  }
+
   switch (side) {
     case "top":
       return {
@@ -78,6 +87,7 @@ export const getCardStyle: (side: string) => React.CSSProperties = (
         top: 0,
         marginRight: "25px",
       };
+
     default:
       // Default case if no side is specified. Center the card to the screen
       return {
@@ -88,7 +98,7 @@ export const getCardStyle: (side: string) => React.CSSProperties = (
         margin: "0",
       };
   }
-};
+}
 
 export const getArrowStyle: (side: string) => React.CSSProperties = (
   side: string
