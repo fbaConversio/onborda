@@ -53,6 +53,25 @@ const Onborda: React.FC<OnbordaProps> = ({
     setIsStepChanging,
   } = useOnborda();
 
+  // Merge and sort breakpoints, cached with useMemo to prevent recalculations on every render
+  const mergedBreakpoints = useMemo(() => {
+    // First merge the default breakpoints with custom ones
+    const merged = {
+      ...defaultBreakpoints,
+      ...breakpoints,
+    };
+
+    // Convert to array and sort by numeric value
+    const entries = Object.entries(merged);
+    entries.sort((a, b) => a[1] - b[1]); // Sort ascending by breakpoint value
+
+    // Convert back to object
+    return entries.reduce((acc, [key, value]) => {
+      acc[key] = value;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [breakpoints]); // Only recalculate when breakpoints prop changes
+
   const [elementToScroll, setElementToScroll] = useState<Element | null>(null);
   const [pointerPosition, setPointerPosition] = useState<{
     x: number;
@@ -579,13 +598,14 @@ const Onborda: React.FC<OnbordaProps> = ({
     pointerPosition && isOnbordaVisible ? "pointer-events-none" : "";
 
   const { currentSide, breakpoint, style } = useBreakpoint({
-    breakpoints,
+    breakpoints: mergedBreakpoints,
     extendSides,
     currentStep: currentTourSteps?.[currentStep],
   });
 
   debug &&
     console.log("Onborda: currentSide, breakpoint", currentSide, breakpoint);
+  debug && console.log("Onborda: breakpoints", mergedBreakpoints);
 
   return (
     <>

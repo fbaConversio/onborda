@@ -63,6 +63,7 @@ export type Side =
   | "right-top"
   | "right-bottom";
 
+export type ExtendedBreakpoint = Breakpoint | (string & {});
 // Adding a new type that extends Side to allow any string
 export type ExtendedSide = Side | (string & {});
 
@@ -92,7 +93,7 @@ export interface Step {
 
   // Options
   /** The side where the step should be displayed for each breakpoint, setting the default will apply to all breakpoints, setting a specific breakpoint will override the default */
-  side?: Partial<Record<Breakpoint, ExtendedSide>>;
+  side?: Partial<Record<ExtendedBreakpoint, ExtendedSide>>;
   /** Flag to show or hide the controls */
   showControls?: boolean;
   /** Padding around the pointer */

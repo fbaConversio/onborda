@@ -23,6 +23,22 @@ export const defaultBreakpoints = {
 };
 const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardTransition = { type: "spring", damping: 26, stiffness: 170 }, cardComponent: CardComponent, tourComponent: TourComponent, debug = false, observerTimeout = 5000, breakpoints = defaultBreakpoints, extendSides = {}, }) => {
     const { currentTour, currentStep, setCurrentStep, isOnbordaVisible, currentTourSteps, completedSteps, setCompletedSteps, tours, closeOnborda, setOnbordaVisible, isStepChanging, setIsStepChanging, } = useOnborda();
+    // Merge and sort breakpoints, cached with useMemo to prevent recalculations on every render
+    const mergedBreakpoints = useMemo(() => {
+        // First merge the default breakpoints with custom ones
+        const merged = {
+            ...defaultBreakpoints,
+            ...breakpoints,
+        };
+        // Convert to array and sort by numeric value
+        const entries = Object.entries(merged);
+        entries.sort((a, b) => a[1] - b[1]); // Sort ascending by breakpoint value
+        // Convert back to object
+        return entries.reduce((acc, [key, value]) => {
+            acc[key] = value;
+            return acc;
+        }, {});
+    }, [breakpoints]); // Only recalculate when breakpoints prop changes
     const [elementToScroll, setElementToScroll] = useState(null);
     const [pointerPosition, setPointerPosition] = useState(null);
     const currentElementRef = useRef(null);
@@ -447,12 +463,13 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
     const pointerRadius = currentTourSteps?.[currentStep]?.pointerRadius ?? 28;
     const pointerEvents = pointerPosition && isOnbordaVisible ? "pointer-events-none" : "";
     const { currentSide, breakpoint, style } = useBreakpoint({
-        breakpoints,
+        breakpoints: mergedBreakpoints,
         extendSides,
         currentStep: currentTourSteps?.[currentStep],
     });
     debug &&
         console.log("Onborda: currentSide, breakpoint", currentSide, breakpoint);
+    debug && console.log("Onborda: breakpoints", mergedBreakpoints);
     return (_jsxs(_Fragment, { children: [_jsx("div", { "data-name": "onborda-site-wrapper", className: ` ${pointerEvents} `, children: children }), pointerPosition &&
                 isOnbordaVisible &&
                 CardComponent &&

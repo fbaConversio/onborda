@@ -40,6 +40,7 @@ export interface OnbordaContextType {
 }
 export type Breakpoint = keyof typeof defaultBreakpoints | "default";
 export type Side = "top" | "bottom" | "left" | "right" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | "left-top" | "left-bottom" | "right-top" | "right-bottom";
+export type ExtendedBreakpoint = Breakpoint | (string & {});
 export type ExtendedSide = Side | (string & {});
 export interface Step {
     /** The unique identifier for the step */
@@ -63,7 +64,7 @@ export interface Step {
     /** The CSS selector for the element to click on when the step is set with the setStep function. */
     clickElementOnSet?: string;
     /** The side where the step should be displayed for each breakpoint, setting the default will apply to all breakpoints, setting a specific breakpoint will override the default */
-    side?: Partial<Record<Breakpoint, ExtendedSide>>;
+    side?: Partial<Record<ExtendedBreakpoint, ExtendedSide>>;
     /** Flag to show or hide the controls */
     showControls?: boolean;
     /** Padding around the pointer */
