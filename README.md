@@ -50,7 +50,7 @@ Tailwind CSS will need to scan the node module in order to include the classes u
 ```ts
 const config: Config = {
   content: [
-    "./node_modules/onborda/dist/**/*.{js,ts,jsx,tsx}", // Add this
+    "./node_modules/@fbaconversio/onborda/dist/**/*.{js,ts,jsx,tsx}", // Add this
   ],
 };
 ```
