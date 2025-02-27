@@ -709,8 +709,6 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                                 opacity: { duration: 0.1 }, // Faster fade for opacity
                             }, children: _jsx(motion.div, { ref: cardRef, className: "absolute flex flex-col max-w-[100%] transition-all min-w-min pointer-events-auto z-[999]", "data-name": "onborda-card", initial: { opacity: 0 }, animate: {
                                     opacity: isScrolling ? 0 : isCardReadyToShow ? 1 : 0,
-                                    x: floatingState?.x,
-                                    y: floatingState?.y,
                                 }, transition: {
                                     ...optimizedCardTransition,
                                     opacity: { duration: 0.25, delay: 0.05 }, // Smooth fade-in after positioning
@@ -720,6 +718,8 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                                     left: 0,
                                     transform: "none", // Floating UI handles positioning with x,y
                                     visibility: floatingState ? "visible" : "hidden",
+                                    x: floatingState?.x,
+                                    y: floatingState?.y,
                                 }, children: _jsx(CardComponent, { step: currentTourSteps?.[currentStep], tour: currentTourObject, currentStep: currentStep, totalSteps: currentTourSteps?.length ?? 0, nextStep: nextStep, prevStep: prevStep, setStep: setStep, closeOnborda: closeOnborda, setOnbordaVisible: setOnbordaVisible, arrow: _jsx(CardArrow, { isVisible: currentTourSteps?.[currentStep]
                                             ? hasSelector(currentTourSteps?.[currentStep])
                                             : false }), completedSteps: Array.from(completedSteps), pendingRouteChange: pendingRouteChange }) }) }) }), TourComponent && (_jsx(motion.div, { "data-name": "onborda-tour-wrapper", animate: {

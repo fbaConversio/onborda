@@ -951,8 +951,6 @@ const Onborda: React.FC<OnbordaProps> = ({
                   initial={{ opacity: 0 }}
                   animate={{
                     opacity: isScrolling ? 0 : isCardReadyToShow ? 1 : 0,
-                    x: floatingState?.x,
-                    y: floatingState?.y,
                   }}
                   transition={{
                     ...optimizedCardTransition,
@@ -964,6 +962,8 @@ const Onborda: React.FC<OnbordaProps> = ({
                     left: 0,
                     transform: "none", // Floating UI handles positioning with x,y
                     visibility: floatingState ? "visible" : "hidden",
+                    x: floatingState?.x,
+                    y: floatingState?.y,
                   }}
                 >
                   <CardComponent
