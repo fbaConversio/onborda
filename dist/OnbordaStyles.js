@@ -9,74 +9,74 @@ export function getCardStyle(side, extendSides) {
                 transform: `translate(-50%, 0)`,
                 left: "50%",
                 bottom: "100%",
-                marginBottom: "25px",
+                marginBottom: "8px",
             };
         case "bottom":
             return {
                 transform: `translate(-50%, 0)`,
                 left: "50%",
                 top: "100%",
-                marginTop: "25px",
+                marginTop: "8px",
             };
         case "left":
             return {
                 transform: `translate(0, -50%)`,
                 right: "100%",
                 top: "50%",
-                marginRight: "25px",
+                marginRight: "8px",
             };
         case "right":
             return {
                 transform: `translate(0, -50%)`,
                 left: "100%",
                 top: "50%",
-                marginLeft: "25px",
+                marginLeft: "8px",
             };
         case "top-left":
             return {
                 bottom: "100%",
-                marginBottom: "25px",
+                marginBottom: "8px",
             };
         case "top-right":
             return {
                 right: 0,
                 bottom: "100%",
-                marginBottom: "25px",
+                marginBottom: "8px",
             };
         case "bottom-left":
             return {
                 top: "100%",
-                marginTop: "25px",
+                marginTop: "8px",
             };
         case "bottom-right":
             return {
                 right: 0,
                 top: "100%",
-                marginTop: "25px",
+                marginTop: "8px",
             };
         case "right-bottom":
             return {
                 left: "100%",
                 bottom: 0,
-                marginLeft: "25px",
+                marginLeft: "8px",
             };
         case "right-top":
             return {
                 left: "100%",
                 top: 0,
-                marginLeft: "25px",
+                marginLeft: "8px",
             };
         case "left-bottom":
             return {
                 right: "100%",
                 bottom: 0,
-                marginRight: "25px",
+                marginRight: "8px",
             };
         case "left-top":
             return {
                 right: "100%",
                 top: 0,
-                marginRight: "25px",
+                marginRight: "8px",
             };
         default:
             // Default case if no side is specified. Center the card to the screen
