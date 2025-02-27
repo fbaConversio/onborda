@@ -1,4 +1,5 @@
 import { Transition } from "framer-motion";
+import { defaultBreakpoints } from "../Onborda";
 
 // Provider
 export interface OnbordaProviderProps {
@@ -46,6 +47,22 @@ export interface OnbordaContextType {
   setIsStepChanging: (isStepChanging: boolean) => void;
 }
 
+export type Breakpoint = keyof typeof defaultBreakpoints | "default";
+
+export type Side =
+  | "top"
+  | "bottom"
+  | "left"
+  | "right"
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right"
+  | "left-top"
+  | "left-bottom"
+  | "right-top"
+  | "right-bottom";
+
 // Step
 export interface Step {
   // Step Content
@@ -71,20 +88,10 @@ export interface Step {
   clickElementOnSet?: string;
 
   // Options
-  /** The side where the step should be displayed */
-  side?:
-    | "top"
-    | "bottom"
-    | "left"
-    | "right"
-    | "top-left"
-    | "top-right"
-    | "bottom-left"
-    | "bottom-right"
-    | "left-top"
-    | "left-bottom"
-    | "right-top"
-    | "right-bottom";
+  /** The side where the step should be displayed for each breakpoint, setting the default will apply to all breakpoints, setting a specific breakpoint will override the default */
+  side?: Partial<Record<Breakpoint, Side>> & {
+    [key: string]: Side;
+  };
   /** Flag to show or hide the controls */
   showControls?: boolean;
   /** Padding around the pointer */
@@ -165,6 +172,11 @@ export interface OnbordaProps {
 
   /** Custom tour component to be used in the Onborda */
   tourComponent?: React.ComponentType<TourComponentProps>;
+
+  /** Breakpoints for the Onborda */
+  breakpoints?: Partial<Record<Breakpoint, number>> & {
+    [key: string]: number;
+  };
 
   /** Flag to enable or disable debug mode */
   debug?: boolean;

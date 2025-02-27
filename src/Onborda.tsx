@@ -8,12 +8,24 @@ import { Portal } from "@radix-ui/react-portal";
 // Types
 import { OnbordaProps, Step } from "./types";
 import { getCardStyle, getArrowStyle } from "./OnbordaStyles";
+import useBreakpoint from "./hooks/useBreakpoint";
 
 /**
  * Onborda Component
  * @param {OnbordaProps} props
  * @constructor
  */
+
+export const defaultBreakpoints = {
+  xs: 480,
+  sm: 640,
+  md: 768,
+  lg: 1024,
+  xl: 1280,
+  "2xl": 1536,
+  "3xl": 1920,
+} as const;
+
 const Onborda: React.FC<OnbordaProps> = ({
   children,
   shadowRgb = "0, 0, 0",
@@ -23,6 +35,7 @@ const Onborda: React.FC<OnbordaProps> = ({
   tourComponent: TourComponent,
   debug = false,
   observerTimeout = 5000,
+  breakpoints = defaultBreakpoints,
 }: OnbordaProps) => {
   const {
     currentTour,
@@ -564,6 +577,12 @@ const Onborda: React.FC<OnbordaProps> = ({
   const pointerEvents =
     pointerPosition && isOnbordaVisible ? "pointer-events-none" : "";
 
+  const { currentSide, breakpoint } = useBreakpoint(
+    breakpoints,
+    currentTourSteps?.[currentStep]
+  );
+
+  console.log(currentSide, breakpoint);
   return (
     <>
       {/* Container for the Website content */}
@@ -638,9 +657,7 @@ const Onborda: React.FC<OnbordaProps> = ({
                   animate={{
                     opacity: isScrolling ? 0 : 1,
                   }}
-                  style={getCardStyle(
-                    currentTourSteps?.[currentStep]?.side as any
-                  )}
+                  style={getCardStyle(currentSide)}
                 >
                   <CardComponent
                     step={currentTourSteps?.[currentStep]!}

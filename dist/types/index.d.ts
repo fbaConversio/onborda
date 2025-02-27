@@ -1,4 +1,5 @@
 import { Transition } from "framer-motion";
+import { defaultBreakpoints } from "../Onborda";
 export interface OnbordaProviderProps {
     /** The children elements to be rendered inside the OnbordaProvider component */
     children: React.ReactNode;
@@ -37,6 +38,8 @@ export interface OnbordaContextType {
     /** function to set the step changing */
     setIsStepChanging: (isStepChanging: boolean) => void;
 }
+export type Breakpoint = keyof typeof defaultBreakpoints | "default";
+export type Side = "top" | "bottom" | "left" | "right" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | "left-top" | "left-bottom" | "right-top" | "right-bottom";
 export interface Step {
     /** The unique identifier for the step */
     id?: string;
@@ -58,8 +61,10 @@ export interface Step {
     clickElementOnUnset?: string;
     /** The CSS selector for the element to click on when the step is set with the setStep function. */
     clickElementOnSet?: string;
-    /** The side where the step should be displayed */
-    side?: "top" | "bottom" | "left" | "right" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | "left-top" | "left-bottom" | "right-top" | "right-bottom";
+    /** The side where the step should be displayed for each breakpoint, setting the default will apply to all breakpoints, setting a specific breakpoint will override the default */
+    side?: Partial<Record<Breakpoint, Side>> & {
+        [key: string]: Side;
+    };
     /** Flag to show or hide the controls */
     showControls?: boolean;
     /** Padding around the pointer */
@@ -122,6 +127,10 @@ export interface OnbordaProps {
     cardComponent?: React.ComponentType<CardComponentProps>;
     /** Custom tour component to be used in the Onborda */
     tourComponent?: React.ComponentType<TourComponentProps>;
+    /** Breakpoints for the Onborda */
+    breakpoints?: Partial<Record<Breakpoint, number>> & {
+        [key: string]: number;
+    };
     /** Flag to enable or disable debug mode */
     debug?: boolean;
     /** Timeout value for the observer when observing for the target element */
