@@ -502,7 +502,7 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                                 opacity: { duration: 0 }, // Smooth fade for opacity
                             }, children: _jsx(motion.div, { className: "absolute flex flex-col max-w-[100%] transition-all min-w-min pointer-events-auto z-[999]", "data-name": "onborda-card", animate: {
                                     opacity: isScrolling ? 0 : 1,
-                                }, style: style, children: _jsx(CardComponent, { step: currentTourSteps?.[currentStep], tour: currentTourObject, currentStep: currentStep, totalSteps: currentTourSteps?.length ?? 0, nextStep: nextStep, prevStep: prevStep, setStep: setStep, closeOnborda: closeOnborda, setOnbordaVisible: setOnbordaVisible, arrow: _jsx(CardArrow, { isVisible: currentTourSteps?.[currentStep]
+                                }, style: style, children: _jsx(CardComponent, { step: currentTourSteps?.[currentStep], tour: currentTourObject, tours: tours, currentStep: currentStep, totalSteps: currentTourSteps?.length ?? 0, nextStep: nextStep, prevStep: prevStep, setStep: setStep, closeOnborda: closeOnborda, setOnbordaVisible: setOnbordaVisible, arrow: _jsx(CardArrow, { isVisible: currentTourSteps?.[currentStep]
                                             ? hasSelector(currentTourSteps?.[currentStep])
                                             : false }), completedSteps: Array.from(completedSteps), pendingRouteChange: pendingRouteChange }) }) }) }), TourComponent && (_jsx(motion.div, { "data-name": "onborda-tour-wrapper", animate: {
                             opacity: isScrolling ? 0 : 1,

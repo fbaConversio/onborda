@@ -686,6 +686,7 @@ const Onborda: React.FC<OnbordaProps> = ({
                   <CardComponent
                     step={currentTourSteps?.[currentStep]!}
                     tour={currentTourObject}
+                    tours={tours}
                     currentStep={currentStep}
                     totalSteps={currentTourSteps?.length ?? 0}
                     nextStep={nextStep}

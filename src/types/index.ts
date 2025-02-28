@@ -228,6 +228,9 @@ export interface CardComponentProps {
   /** The current tour object containing details of the tour */
   tour: Tour;
 
+  /** All tours */
+  tours: Tour[];
+
   /** The index of the current step */
   currentStep: number;
 

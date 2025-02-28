@@ -63,6 +63,7 @@ If you require greater control over the card design or simply wish to create a t
 | -------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------- |
 | `step`               | `Step`                              | The current `Step` object from your steps array, including content, title, etc.               |
 | `tour`               | `Tour`                              | The current `Tour` object from your tours array, including title, description, etc.           |
+| `tours`              | `Tour[]`                            | All the current `Tour` object from your tours array, including title, description, etc.       |
 | `currentStep`        | `number`                            | The index of the current step in the steps array.                                             |
 | `totalSteps`         | `number`                            | The total number of steps in the onboarding process.                                          |
 | `setStep`            | `(step: number \| string) => void;` | A function to set the current step in the onboarding process.                                 |
