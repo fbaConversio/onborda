@@ -341,11 +341,13 @@ const Onborda: React.FC<OnbordaProps> = ({
   const getElementPosition = (element: Element) => {
     const { top, left, width, height } = element.getBoundingClientRect();
     // Always use the latest scroll position values to ensure accuracy during scrolling
+
     const scrollTop =
       window.pageYOffset ||
       document.documentElement.scrollTop ||
       document.body.scrollTop ||
       0;
+
     const scrollLeft =
       window.pageXOffset ||
       document.documentElement.scrollLeft ||
@@ -353,7 +355,7 @@ const Onborda: React.FC<OnbordaProps> = ({
       0;
 
     debug &&
-      console.log("Onborda: Getting element position", {
+      console.log(`Onborda: Getting element position: ${element.id}`, {
         top,
         left,
         width,
@@ -372,31 +374,105 @@ const Onborda: React.FC<OnbordaProps> = ({
     };
   };
 
+  const getInScrollContainerPosition = (element: Element) => {
+    // Get the scroll container
+    if (!currentTourObject?.scrollContainer) return null;
+
+    const selector =
+      currentTourObject?.steps?.[currentStep]?.scrollContainerOveride ??
+      currentTourObject?.scrollContainer;
+
+    const scrollContainer = document.querySelector(selector ?? "");
+    if (!scrollContainer) {
+      debug &&
+        console.log(
+          "Onborda: Scroll container not found, using default positioning"
+        );
+      return getElementPosition(element); // Fallback to default positioning
+    }
+
+    // Get the element's position relative to the viewport
+    const elementRect = element.getBoundingClientRect();
+    // Get the container's position relative to the viewport
+    const containerRect = scrollContainer.getBoundingClientRect();
+
+    // Calculate position relative to the container
+    const relativeTop =
+      elementRect.top - containerRect.top + scrollContainer.scrollTop;
+    const relativeLeft =
+      elementRect.left - containerRect.left + scrollContainer.scrollLeft;
+
+    debug &&
+      console.log(
+        `Onborda: Getting element position in container: ${element.id}`,
+        {
+          elementRect,
+          containerRect,
+          containerScroll: {
+            top: scrollContainer.scrollTop,
+            left: scrollContainer.scrollLeft,
+          },
+          relative: {
+            top: relativeTop,
+            left: relativeLeft,
+          },
+        }
+      );
+
+    return {
+      x: relativeLeft,
+      y: relativeTop,
+      width: elementRect.width,
+      height: elementRect.height,
+    };
+  };
+
   // - -
   // Scroll to the element when the elementToScroll changes
   useEffect(() => {
     if (elementToScroll && isOnbordaVisible) {
       debug && console.log("Onborda: Element to Scroll Changed");
-      const rect = elementToScroll.getBoundingClientRect();
-      const isAbove = rect.top < 0;
 
-      // Check if we need to scroll
-      const needsScrolling =
-        rect.top < 0 ||
-        rect.left < 0 ||
-        rect.bottom >
-          (window.innerHeight || document.documentElement.clientHeight) ||
-        rect.right >
-          (window.innerWidth || document.documentElement.clientWidth);
+      // Get viewport dimensions
+      const viewportHeight =
+        window.innerHeight || document.documentElement.clientHeight;
 
-      if (needsScrolling) {
-        // Hide the pointer during scrolling
-        setIsScrolling(true);
+      debug && console.log("Onborda: viewportHeight", viewportHeight);
+
+      // Get element position
+      const position = getElementPosition(elementToScroll);
+
+      const positionInScrollContainer =
+        getInScrollContainerPosition(elementToScroll);
+
+      debug &&
+        console.log(
+          `Onborda: position: ${elementToScroll.id}`,
+          position,
+          positionInScrollContainer
+        );
+
+      // Check if element can be centered
+      const threshold = (viewportHeight - position.height) / 2;
+
+      debug &&
+        console.log(`Onborda: threshold: ${elementToScroll.id}`, threshold);
+
+      if (positionInScrollContainer) {
+        if (positionInScrollContainer.y >= threshold) {
+          // Hide the pointer during scrolling
+          setIsScrolling(true);
+        }
+      } else {
+        if (position.y >= threshold) {
+          // Hide the pointer during scrolling
+          setIsScrolling(true);
+        }
       }
 
       // Start scroll animation
       elementToScroll.scrollIntoView({
-        block: isAbove ? "center" : "center",
+        block: "center",
         inline: "center",
         behavior: "smooth",
       });

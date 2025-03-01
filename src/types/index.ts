@@ -106,6 +106,8 @@ export interface Step {
   isCompleteConditions?: (element: Element | null) => boolean;
   /** Selector for Element/s that an observer is attached to listen for changes. Upon each observation, isCompleteConditions is triggered. */
   observerSelector?: string;
+  /** Override the scroll container for the step with a custom CSS selector. If not set, scroll will be calculated based on the viewport. Only used if tour.scrollContainer is set. */
+  scrollContainerOveride?: string;
 
   // Routing
   /** The route for this step */
@@ -144,6 +146,8 @@ export interface Tour {
   [key: string]: any;
   /** Initial completed steps state of the tour. an async function called on tour started. Can be a Server Action e.g. Promise.all([]) on API calls. */
   initialCompletedStepsState?: () => Promise<boolean[]>;
+  /** If the tour is in a scroll container, set the CSS selector of the scroll container. If not set, scroll will be calculated based on the viewport. */
+  scrollContainer?: string;
 }
 
 // Onborda
