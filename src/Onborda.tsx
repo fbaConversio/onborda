@@ -289,7 +289,13 @@ const Onborda: React.FC<OnbordaProps> = ({
                 currentStep,
                 step
               );
-            step?.onComplete && step.onComplete();
+
+            if (step?.onComplete) {
+              const tour = tours.find((t) => t.tour === currentTour);
+              if (tour) {
+                step.onComplete(tour);
+              }
+            }
             setCompletedSteps(completedSteps.add(currentStep));
           }
         }

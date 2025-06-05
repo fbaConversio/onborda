@@ -74,7 +74,10 @@ const OnbordaProvider: React.FC<OnbordaProviderProps> = ({
   const closeOnborda = useCallback(() => {
     // If all steps are completed, call the onComplete function
     if (completedSteps.size === currentTourSteps.length) {
-      tours.find((tour) => tour.tour === currentTour)?.onComplete?.();
+      const tour = tours.find((tour) => tour.tour === currentTour);
+      if (tour) {
+        tour.onComplete?.(tour);
+      }
     }
     setOnbordaVisible(false);
     setCurrentTourState(null);

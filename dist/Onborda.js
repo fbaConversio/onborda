@@ -212,7 +212,12 @@ const Onborda = ({ children, shadowRgb = "0, 0, 0", shadowOpacity = "0.2", cardT
                         // don't have a route to navigate to, but the step is not completed
                         debug &&
                             console.log("Onborda: Step Completed via no selector", currentStep, step);
-                        step?.onComplete && step.onComplete();
+                        if (step?.onComplete) {
+                            const tour = tours.find((t) => t.tour === currentTour);
+                            if (tour) {
+                                step.onComplete(tour);
+                            }
+                        }
                         setCompletedSteps(completedSteps.add(currentStep));
                     }
                 }

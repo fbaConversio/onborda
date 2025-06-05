@@ -121,7 +121,7 @@ export interface Step {
 
   // Callbacks
   /** Callback function to be called when the step is completed */
-  onComplete?: () => Promise<void>;
+  onComplete?: (tour: Tour) => Promise<void>;
 
   /** Any additional data for custom use */
   [key: string]: any;
@@ -139,7 +139,7 @@ export interface Tour {
   /** An array of steps in the tour */
   steps: Step[];
   /** Complete Callback */
-  onComplete?: () => void;
+  onComplete?: (tour: Tour) => void;
   /** Tour can be dismissed. */
   dismissible?: boolean;
   /** Any additional data for custom use */
